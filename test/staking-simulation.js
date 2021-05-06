@@ -10,18 +10,8 @@ const deploy = async (accounts) => {
     const setup = await helpers.setup.initialize(accounts[0]);
     // deploy ERC20s
     setup.tokens = await helpers.setup.tokens(setup);
-    // // deploy DAOStack meta-contracts
-    // setup.DAOStack = await helpers.setup.DAOStack(setup);
-    // // deploy organization
-    // setup.organization = await helpers.setup.organization(setup);
     // // deploy balancer infrastructure
     setup.balancer = await helpers.setup.balancer(setup);
-    // // deploy incentives contract
-    setup.incentives = await helpers.setup.incentives(setup);
-    // // deploy seedFactory
-    // setup.seedFactory = await helpers.setup.seedFactory(setup);
-    // // deploy primeDAO governance
-    // setup.primeDAO = await helpers.setup.primeDAO(setup);
 
     return setup;
 };

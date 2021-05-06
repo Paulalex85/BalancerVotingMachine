@@ -1,13 +1,12 @@
 const ERC20 = artifacts.require('ERC20Mock');
 // Balancer imports
 const ConfigurableRightsPool = artifacts.require('ConfigurableRightsPool');
-const BPool = artifacts.require('BPool');
 const BFactory = artifacts.require('BFactory');
 const CRPFactory = artifacts.require('CRPFactory');
 const BalancerSafeMath = artifacts.require('BalancerSafeMath');
 const RightsManager = artifacts.require('RightsManager');
 const SmartPoolManager = artifacts.require('SmartPoolManager');
-const BalancerProxy = artifacts.require('BalancerProxy');
+const VotingMachine = artifacts.require('VotingMachine');
 
 
 const {time, constants} = require('@openzeppelin/test-helpers');
@@ -17,7 +16,6 @@ const MAX = web3.utils.toTwosComplement(-1);
 
 const {toWei} = web3.utils;
 const {fromWei} = web3.utils;
-
 
 
 const initialize = async (root) => {
@@ -33,11 +31,12 @@ const tokens = async (setup) => {
     const usdc = await ERC20.new('USDC Stablecoin', 'USDC', 15);
     const usdt = await ERC20.new('USDT Stablecoin', 'USDT', 18);
 
-    // const primeToken = await PrimeToken.new(PRIME_SUPPLY, PRIME_CAP, setup.root);
-
-    // return { erc20s, primeToken};
     return {dai, usdc, usdt};
 };
+
+const votingMachine = async (setup) => {
+    return await VotingMachine.new(setup.balancer.pool.address);
+}
 
 const balancer = async (setup) => {
     // deploy balancer infrastructure
@@ -55,15 +54,11 @@ const balancer = async (setup) => {
 
     const usdc = await setup.tokens.usdc;
     const dai = await setup.tokens.dai;
-    // const primetoken = await setup.tokens.primeToken;
     const usdt = await setup.tokens.usdt;
 
     const USDC = await usdc.address;
     const DAI = await dai.address;
     const USDT = await usdt.address;
-    // const PRIMEToken = await primetoken.address;
-
-    // const tokenAddresses = [PRIMEToken, DAI, USDC];
     const tokenAddresses = [USDT, DAI, USDC];
 
     const swapFee = 10 ** 15;
@@ -106,19 +101,13 @@ const balancer = async (setup) => {
     await usdc.approve(POOL, MAX);
     await dai.approve(POOL, MAX);
     await usdt.approve(POOL, MAX);
-    // await primetoken.approve(POOL, MAX);
 
     await pool.createPool(toWei('1000'), 10, 10);
 
     // move ownership to avatar
     await pool.setController(setup.root);
 
-    // deploy proxy
-    const proxy = await BalancerProxy.new();
-    // initialize proxy
-    await proxy.initialize(setup.root, pool.address, await pool.bPool());
-
-    return {pool, proxy};
+    return {pool};
 };
 
 
@@ -126,4 +115,5 @@ module.exports = {
     initialize,
     tokens,
     balancer,
+    votingMachine,
 };
