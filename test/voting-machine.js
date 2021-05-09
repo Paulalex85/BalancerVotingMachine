@@ -71,4 +71,22 @@ contract('VotingMachine', (accounts) => {
             });
         });
     });
+    context('# withdraw lp token', async () => {
+        it('amount should be > 0', async () => {
+            await expectRevert(setup.votingMachine.withdraw(0), "VotingMachine: Cannot withdraw 0");
+        });
+        it('try withdraw without stake', async () => {
+            await expectRevert(setup.votingMachine.withdraw(stakeAmount), "SafeMath: subtraction overflow");
+        });
+        it('can stake and withdraw', async () => {
+            let tx = await setup.votingMachine.withdraw(stakeAmount, {from: accounts[1]})
+            setup.data.tx = tx;
+
+            await expectEvent.inTransaction(setup.data.tx.tx, setup.votingMachine, 'Withdrawn', {
+                user: accounts[1],
+                amount: stakeAmount
+            });
+            expect((await setup.votingMachine.balanceOf(accounts[1])).toString()).to.equal("0");
+        });
+    });
 });
