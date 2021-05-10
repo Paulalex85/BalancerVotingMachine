@@ -27,6 +27,9 @@ contract('VotingMachine', (accounts) => {
     let irregularStake;
     let irregularStake2;
     let tinyStake;
+    let voteDuration = 7;
+    let voteName = "Vote Test";
+    let initTime;
 
     before('!! deploy setup', async () => {
         setup = await deploy(accounts);
@@ -87,6 +90,32 @@ contract('VotingMachine', (accounts) => {
                 amount: stakeAmount
             });
             expect((await setup.votingMachine.balanceOf(accounts[1])).toString()).to.equal("0");
+        });
+    });
+    context('# start a vote', async () => {
+        it('need stake to start a vote ', async () => {
+            await expectRevert(setup.votingMachine.startVoting(voteDuration, voteName, {from: accounts[1]}), "VotingMachine: vote creator should have stake");
+        });
+        it('stake and start a vote ', async () => {
+            await setup.balancer.pool.approve(setup.votingMachine.address, stakeAmount, {from: accounts[1]});
+            await setup.votingMachine.stake(stakeAmount, {from: accounts[1]})
+
+            initTime = await time.latest();
+            let tx = await setup.votingMachine.startVoting(voteDuration, voteName, {from: accounts[1]})
+            setup.data.tx = tx;
+
+            await expectEvent.inTransaction(setup.data.tx.tx, setup.votingMachine, 'VoteStarted', {
+                votingId: '0'
+            });
+            let vote = await setup.votingMachine.getVote(0)
+            console.log(vote)
+
+            expect(vote.createdAt.toNumber()).to.equal(initTime.toNumber());
+            expect(vote.duration.toNumber()).to.equal(time.duration.days(voteDuration).toNumber());
+            expect(vote.description).to.equal(voteName);
+            expect(vote.executed).to.equal(false);
+            expect(vote.totalAccepted.toString()).to.equal("0");
+            expect(vote.totalRejected.toString()).to.equal("0");
         });
     });
 });
