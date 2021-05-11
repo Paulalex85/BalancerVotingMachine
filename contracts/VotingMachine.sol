@@ -32,6 +32,7 @@ contract VotingMachine is ReentrancyGuard {
     BToken public balancerLPToken;
 
     event VoteStarted(uint256 indexed votingId);
+    event VotePlaced(uint256 indexed votingId, address voter, VoteStatus status, uint256 voteWeight);
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
 
@@ -58,6 +59,26 @@ contract VotingMachine is ReentrancyGuard {
         );
 
         emit VoteStarted(votingId);
+    }
+
+    function vote(uint256 votingId, VoteStatus status) external {
+        VotingDetails storage votingDetails = votings[votingId];
+
+        // checking inputs
+        require(votingDetails.createdAt > 0, "VotingMachine: Vote does not exist");
+        require(status != VoteStatus.NONE, "VotingMachine: Invalid vote");
+        require(votingDetails.createdAt.add(votingDetails.duration) > now, "VotingMachine: Too late to vote");
+        require(votingDetails.voteByAccount[msg.sender] == VoteStatus.NONE, "VotingMachine: The voter already voted");
+
+        votingDetails.voteByAccount[msg.sender] = status;
+
+        if (status == VoteStatus.ACCEPT) {
+            votingDetails.totalAccepted = votingDetails.totalAccepted.add(balances[msg.sender]);
+        } else {
+            votingDetails.totalRejected = votingDetails.totalRejected.add(balances[msg.sender]);
+        }
+
+        emit VotePlaced(votingId, msg.sender, status, balances[msg.sender]);
     }
 
     function stake(uint256 amount) public nonReentrant {

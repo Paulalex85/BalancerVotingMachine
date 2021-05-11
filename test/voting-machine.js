@@ -6,6 +6,12 @@ const VotingMachine = artifacts.require('VotingMachine');
 
 const {toWei} = web3.utils;
 
+const VoteStatus = {
+    NONE: 0,
+    ACCEPT: 1,
+    REJECT: 2
+};
+
 const deploy = async (accounts) => {
     // initialize test setup
     const setup = await helpers.setup.initialize(accounts[0]);
@@ -108,7 +114,6 @@ contract('VotingMachine', (accounts) => {
                 votingId: '0'
             });
             let vote = await setup.votingMachine.getVote(0)
-            console.log(vote)
 
             expect(vote.createdAt.toNumber()).to.equal(initTime.toNumber());
             expect(vote.duration.toNumber()).to.equal(time.duration.days(voteDuration).toNumber());
@@ -116,6 +121,36 @@ contract('VotingMachine', (accounts) => {
             expect(vote.executed).to.equal(false);
             expect(vote.totalAccepted.toString()).to.equal("0");
             expect(vote.totalRejected.toString()).to.equal("0");
+        });
+    });
+    context('# vote', async () => {
+        it('vote need to be created to vote ', async () => {
+            await expectRevert(setup.votingMachine.vote(10, VoteStatus.ACCEPT, {from: accounts[1]}), "VotingMachine: Vote does not exist");
+        });
+        it('vote need to be accept or rejected ', async () => {
+            await expectRevert(setup.votingMachine.vote(0, VoteStatus.NONE, {from: accounts[1]}), "VotingMachine: Invalid vote");
+        });
+        it('can vote ', async () => {
+            let tx = await setup.votingMachine.vote(0, VoteStatus.ACCEPT, {from: accounts[1]});
+            setup.data.tx = tx;
+
+            await expectEvent.inTransaction(setup.data.tx.tx, setup.votingMachine, 'VotePlaced', {
+                votingId: '0',
+                voter: accounts[1],
+                status: VoteStatus.ACCEPT.toString(),
+                voteWeight: stakeAmount.toString()
+            });
+
+            let vote = await setup.votingMachine.getVote(0)
+            expect(vote.totalAccepted.toString()).to.equal(stakeAmount.toString());
+            expect(vote.totalRejected.toString()).to.equal("0");
+        });
+        it('can t vote twice ', async () => {
+            await expectRevert(setup.votingMachine.vote(0, VoteStatus.REJECT, {from: accounts[1]}), "VotingMachine: The voter already voted");
+        });
+        it('can t vote when expired ', async () => {
+            await time.increase(time.duration.days(voteDuration));
+            await expectRevert(setup.votingMachine.vote(0, VoteStatus.ACCEPT, {from: accounts[1]}), "VotingMachine: Too late to vote");
         });
     });
 });
