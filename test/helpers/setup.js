@@ -23,6 +23,7 @@ const initialize = async (root) => {
     setup.root = root;
     setup.data = {};
     setup.data.balances = [];
+    setup.initialSupply = toWei('200');
     return setup;
 };
 
@@ -102,7 +103,7 @@ const balancer = async (setup) => {
     await dai.approve(POOL, MAX);
     await usdt.approve(POOL, MAX);
 
-    await pool.createPool(toWei('1000'), 10, 10);
+    await pool.createPool(setup.initialSupply, 10, 10);
 
     // move ownership to avatar
     await pool.setController(setup.root);

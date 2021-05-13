@@ -7,6 +7,8 @@ import "./utils/interfaces/BToken.sol";
 contract VotingMachine is ReentrancyGuard {
     using SafeMath for uint256;
 
+    uint256 VOTING_THRESHOLD_PERCENT = 50;
+
     enum VoteStatus {
         NONE, ACCEPT, REJECT
     }
@@ -33,6 +35,7 @@ contract VotingMachine is ReentrancyGuard {
 
     event VoteStarted(uint256 indexed votingId);
     event VotePlaced(uint256 indexed votingId, address voter, VoteStatus status, uint256 voteWeight);
+    event VotingExecuted(uint256 indexed votingId, VotingResult result);
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
 
@@ -81,6 +84,34 @@ contract VotingMachine is ReentrancyGuard {
         emit VotePlaced(votingId, msg.sender, status, balances[msg.sender]);
     }
 
+    function executeVoting(uint256 votingId) external {
+        VotingDetails storage votingDetails = votings[votingId];
+
+        // checking inputs
+        require(votingDetails.createdAt > 0, "VotingMachine: The voting does not exist");
+        require(!votingDetails.executed, "VotingMachine: The voting was already executed");
+        require(votingDetails.createdAt.add(votingDetails.duration) < now, "VotingMachine: To early to execute");
+
+        // calculating voting result
+        //  total voted weight need to be more than 50% of total supply
+        uint256 totalSupplySnapshot = balancerLPToken.totalSupply();
+        uint256 votingThreshold = totalSupplySnapshot.mul(VOTING_THRESHOLD_PERCENT) / 100;
+        VotingResult result;
+        if (votingDetails.totalAccepted.add(votingDetails.totalRejected) >= votingThreshold) {
+            if (votingDetails.totalAccepted > votingDetails.totalRejected) {
+                result = VotingResult.ACCEPT;
+            } else {
+                result = VotingResult.REJECT;
+            }
+        } else {
+            result = VotingResult.NOT_APPLIED;
+        }
+
+        votingDetails.totalSupply = totalSupplySnapshot;
+        votingDetails.executed = true;
+        emit VotingExecuted(votingId, result);
+    }
+
     function stake(uint256 amount) public nonReentrant {
         require(amount > 0, "VotingMachine: cannot stake 0");
         balances[msg.sender] = balances[msg.sender].add(amount);
@@ -105,7 +136,8 @@ contract VotingMachine is ReentrancyGuard {
         string memory description,
         bool executed,
         uint256 totalAccepted,
-        uint256 totalRejected
+        uint256 totalRejected,
+        uint256 totalSupply
     ) {
         VotingDetails storage votingDetails = votings[votingId];
 
@@ -115,7 +147,8 @@ contract VotingMachine is ReentrancyGuard {
         votingDetails.description,
         votingDetails.executed,
         votingDetails.totalAccepted,
-        votingDetails.totalRejected
+        votingDetails.totalRejected,
+        votingDetails.totalSupply
         );
     }
 }
